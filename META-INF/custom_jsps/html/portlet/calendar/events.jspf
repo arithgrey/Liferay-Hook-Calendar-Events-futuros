@@ -1,0 +1,221 @@
+
+<%@page import="java.util.Date"%>
+<%
+PortletURL iteratorURL = PortletURLUtil.clone(portletURL, renderResponse);
+List<String> headerNames = new ArrayList<String>();
+//Titulos del portlet
+headerNames.add("date");
+headerNames.add("time");
+headerNames.add("title");
+headerNames.add("type");
+headerNames.add("details");
+
+headerNames.add(StringPool.BLANK);
+//Servicio que manda a traer los contenidos 
+SearchContainer searchContainer = new SearchContainer(renderRequest, null, null, SearchContainer.DEFAULT_CUR_PARAM, SearchContainer.DEFAULT_DELTA, iteratorURL, headerNames, null);
+int texd=searchContainer.getResultEnd();
+//Número total de eventos
+int total = CalEventServiceUtil.getEventsCount(scopeGroupId, eventType);
+searchContainer.setTotal(total);
+
+//Traemos todos los eventos y los guardamos en una lista
+List results =CalEventServiceUtil.getEvents(scopeGroupId, eventType, searchContainer.getStart(),
+ total); 
+
+searchContainer.setResults(results);
+
+List resultRows = searchContainer.getResultRows();
+
+//Iteramos desde cero hasta el número de elementos base a mostrar
+for (int i = 0; i < results.size(); i++) {
+    CalEvent event = (CalEvent)results.get(i);
+//cadenas en donde  guardaremos nuestros  día, mes, y horas de cada evento.
+    String AEvent="";   
+    String MEvent="";
+    String dEvent="";
+//Enteros en donde guardar los valores de día, mes, y hora de cada evento como entero.
+    int AEvento;
+    int MesEvento;
+    int DiaEvento;
+//Cadena en donde guardar día, mes, y hora del día actual.
+    String AñoA="";
+    String MesA="";
+    String DiaA="";
+//Enteros en donde guardar los valores de día, mes, y hora del día
+    int AñoActual;
+    int MesActual;
+    int DiaActual;
+
+//Guardamos en una cadena la fecha por evento con el formato del servidor
+    String FecheEvento=dateFormatDate.format(Time.getDate(event.getStartDate(), timeZone));
+    //Si la cadena del evento pose en su segundo carácter un  --->> /
+    if(FecheEvento.charAt(1)!='/'){
+                //Guardamos en cada cadena los elementos sacados respecto a sus posiciones
+
+                AEvent=""+FecheEvento.charAt(6)+FecheEvento.charAt(7);
+                MEvent=""+FecheEvento.charAt(3)+FecheEvento.charAt(4);
+                dEvent=""+FecheEvento.charAt(0)+FecheEvento.charAt(1);
+                 
+              //Pasamos las cadenas anteriores a enteros
+                AEvento=Integer.parseInt(AEvent);
+                MesEvento=Integer.parseInt(MEvent);
+                DiaEvento=Integer.parseInt(dEvent);
+    }else{
+             //Si la cadena tiene el siguiente formato  como --->>8/09/12   
+             //Guardamos en cada cadena los elementos sacados respecto a sus posiciones
+                AEvent=""+FecheEvento.charAt(5)+FecheEvento.charAt(6);
+                MEvent=""+FecheEvento.charAt(2)+FecheEvento.charAt(3);
+                dEvent=""+FecheEvento.charAt(0);
+                 
+             //Pasamos las cadenas anteriores a enteros
+                AEvento=Integer.parseInt(AEvent);
+                MesEvento=Integer.parseInt(MEvent);
+                DiaEvento=Integer.parseInt(dEvent);
+    }
+    //Creamos un objeto Date
+    Date f=new Date();
+    //Guardamos en una cadena la fecha actual
+    String F=dateFormatDate.format(Time.getDate(f, timeZone));
+    
+    //Si la cadena  pose en su segundo carácter un  / 
+    if(F.charAt(1)!='/'){
+            //Guardamos en cada cadena los elementos sacados respecto a sus posiciones
+            AñoA=""+F.charAt(6)+F.charAt(7);
+            MesA=""+F.charAt(3)+F.charAt(4);
+            DiaA=""+F.charAt(0)+F.charAt(1);
+
+            //Pasamos las cadenas a enteros 
+            AñoActual=Integer.parseInt(AñoA);
+            MesActual=Integer.parseInt(MesA);
+            DiaActual=Integer.parseInt(DiaA);
+    }else{
+            //Guardamos en cada cadena los elementos sacados respecto a sus posiciones
+            AñoA=""+F.charAt(5)+F.charAt(6);
+            MesA=""+F.charAt(2)+F.charAt(3);
+            DiaA=""+F.charAt(0);
+            //Pasamos las cadenas a enteros  
+            AñoActual=Integer.parseInt(AñoA);
+            MesActual=Integer.parseInt(MesA);
+            DiaActual=Integer.parseInt(DiaA);    
+    }
+    /*Si el año presente es menor o igual al año del evento
+        y el mes actual es menor al mes del evento
+    */
+    if(AñoActual<=AEvento && MesActual<MesEvento ){
+            
+                event = event.toEscapedModel();
+                ResultRow row = new ResultRow(event, event.getEventId(), i);
+                PortletURL rowURL = renderResponse.createRenderURL();
+                rowURL.setParameter("struts_action", "/calendar/view_event");
+                rowURL.setParameter("redirect", currentURL);
+                rowURL.setParameter("eventId", String.valueOf(event.getEventId()));
+                
+                if (event.isTimeZoneSensitive()) {
+                    
+                    row.addText(dateFormatDate.format(Time.getDate(event.getStartDate(), timeZone)), rowURL);
+                }
+                else {
+                    row.addText(dateFormatDate.format(Time.getDate(event.getStartDate(), TimeZoneUtil.getDefault())), rowURL);
+                }
+                boolean allDay = CalUtil.isAllDay(event, timeZone, locale);
+
+                if (allDay) {
+                    row.addText(LanguageUtil.get(pageContext, "all-day"), rowURL);
+                }
+                else {
+                    if (event.isTimeZoneSensitive()) {
+                        row.addText(
+                            dateFormatTime.format(Time.getDate(event.getStartDate(), timeZone)) + " &#150; " + dateFormatTime.format(Time.getDate(CalUtil.getEndTime(event), timeZone)),
+                            rowURL);
+                    }
+                    else {
+
+                        row.addText(
+                            dateFormatTime.format(Time.getDate(event.getStartDate(), TimeZoneUtil.getDefault())) + " &#150; " + dateFormatTime.format(Time.getDate(CalUtil.getEndTime(event), TimeZoneUtil.getDefault())),
+                            rowURL);
+                    }
+                }
+                row.addText(event.getTitle(), rowURL);
+                row.addText(LanguageUtil.get(pageContext, HtmlUtil.unescape(event.getType())), rowURL);
+                row.addJSP("left", SearchEntry.DEFAULT_VALIGN, "/html/portlet/calendar/view_event_recurrence.jsp");
+                row.addJSP("right", SearchEntry.DEFAULT_VALIGN, "/html/portlet/calendar/event_action.jsp");
+                resultRows.add(row);          
+                /*
+                También Si el año presente es menor o igual al año del evento
+        y el mes actual es menor o igual al mes del evento y el día actual es menor o igual al dial del evento 
+        */
+        }else if(AñoActual<=AEvento && MesActual<=MesEvento && DiaActual<=DiaEvento){
+        
+                event = event.toEscapedModel();
+                ResultRow row = new ResultRow(event, event.getEventId(), i);
+                PortletURL rowURL = renderResponse.createRenderURL();
+                rowURL.setParameter("struts_action", "/calendar/view_event");
+                rowURL.setParameter("redirect", currentURL);
+                rowURL.setParameter("eventId", String.valueOf(event.getEventId()));
+                
+                if (event.isTimeZoneSensitive()) {
+                    
+                    row.addText(dateFormatDate.format(Time.getDate(event.getStartDate(), timeZone)), rowURL);
+                }
+                else {
+                    row.addText(dateFormatDate.format(Time.getDate(event.getStartDate(), TimeZoneUtil.getDefault())), rowURL);
+                }
+                boolean allDay = CalUtil.isAllDay(event, timeZone, locale);
+
+                if (allDay) {
+                    row.addText(LanguageUtil.get(pageContext, "all-day"), rowURL);
+                }
+                else {
+                    
+                    if (event.isTimeZoneSensitive()) {
+                        row.addText(
+                            dateFormatTime.format(Time.getDate(event.getStartDate(), timeZone)) + " &#150; " + dateFormatTime.format(Time.getDate(CalUtil.getEndTime(event), timeZone)),
+                            rowURL);
+                    }
+                    else {
+                        row.addText(
+                            dateFormatTime.format(Time.getDate(event.getStartDate(), TimeZoneUtil.getDefault())) + " &#150; " + dateFormatTime.format(Time.getDate(CalUtil.getEndTime(event), TimeZoneUtil.getDefault())),
+                            rowURL);
+                    }
+                }
+                row.addText(event.getTitle(), rowURL);
+                row.addText(LanguageUtil.get(pageContext, HtmlUtil.unescape(event.getType())), rowURL);
+                row.addJSP("left", SearchEntry.DEFAULT_VALIGN, "/html/portlet/calendar/view_event_recurrence.jsp");
+                row.addJSP("right", SearchEntry.DEFAULT_VALIGN, "/html/portlet/calendar/event_action.jsp");
+                resultRows.add(row);          
+
+        }else{
+            //No se muestra nada
+        }
+}     
+%>
+<c:if test="<%= CalendarPermission.contains(permissionChecker, scopeGroupId, ActionKeys.ADD_EVENT) %>">
+    <div>
+        <portlet:renderURL var="editEventURL">
+            <portlet:param name="struts_action" value="/calendar/edit_event" />
+            <portlet:param name="redirect" value="<%= currentURL %>" />
+            <portlet:param name="backURL" value="<%= currentURL %>" />
+            <portlet:param name="month" value="<%= String.valueOf(selMonth) %>" />
+            <portlet:param name="day" value="<%= String.valueOf(selDay) %>" />
+            <portlet:param name="year" value="<%= String.valueOf(selYear) %>" />
+        </portlet:renderURL>
+
+        <aui:button href="<%= editEventURL %>" value="add-event" />
+    </div>
+    <br />   
+</c:if>
+<style type="text/css">    
+    .taglib-search-iterator-page-iterator-bottom{
+        width: 0px;
+        height: 0px;
+    }
+    .taglib-search-iterator-page-iterator-top{
+            width: 0px;
+        height: 0px;
+    }
+</style>
+
+<liferay-ui:search-iterator searchContainer="<%= searchContainer %>"/>
+<%
+PortalUtil.setPageSubtitle(LanguageUtil.get(pageContext, "events"), request);
+%>
